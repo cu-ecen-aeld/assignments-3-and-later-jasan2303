@@ -13,4 +13,11 @@ then
 exit 1
 fi
 
+ Directory="$(dirname "${writefile}")" ;  Filename="$(basename "${writefile}")"
+
+echo " [${Directory}] [${Filename}]"
+
+mkdir $Directory
+
+touch $writefile
 echo $writestr >$writefile
