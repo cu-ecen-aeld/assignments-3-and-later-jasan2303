@@ -3,6 +3,7 @@
 writefile=$1
 writestr=$2
 
+#Checks for the correct argument types
 if [ ! $# -eq 2 ]
 then
  echo " $0 Error: Invalid number of arguments."
@@ -13,11 +14,12 @@ then
 exit 1
 fi
 
+# Seperating the file from the directory
  Directory="$(dirname "${writefile}")" ;  Filename="$(basename "${writefile}")"
 
-echo " [${Directory}] [${Filename}]"
-
+# Creating the directory for the file creation
 mkdir $Directory
 
+#creating the file  and writing the input string in it
 touch $writefile
 echo $writestr >$writefile
