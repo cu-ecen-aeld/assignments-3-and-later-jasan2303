@@ -3,7 +3,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
-
+#include <errno.h>
+#include <string.h>
 /**
  * @param cmd the command to execute with system()
  * @return true if the commands in ... with arguments @param arguments were executed 
@@ -53,13 +54,7 @@ bool do_exec(int count, ...)
     }
     command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-   // command[count] = command[count];
-    //char * path = command[0];
-    // for(i=0;i<count;i++) {
-    // command[i] = command[i+1];
-     //}
-       
+    // and may be removed       
      
 /* 
  * TODO:
@@ -73,28 +68,31 @@ bool do_exec(int count, ...)
     pid_t pid;
     int status=0;
     
-    pid = fork();
+   //creating a child using fork
+    pid = fork(); 
     
     if(pid == -1)
      return -1;
     else if(pid == 0){
-        printf("calling execv\n");
+        
         execv(command[0], command);
-      
+        printf("ERROR: Unable to find %s : %s\n", command[0], strerror(errno));
         exit (-1);
-      //return false;
+    
     }
-
+ int exit_code;
   if( waitpid( pid, &status, 0) == -1)
     return false;
   else if(WIFEXITED (status)){
-   //printf(" %d\n", WEXITSTATUS (status));
-   if(WEXITSTATUS (status) == status)
-    return true;
-     else
+   exit_code =WEXITSTATUS (status);
+   if(exit_code == status)   //compares the wait exit status of the child 
+    return true;                        //returns true if child exited with 0  otherwise returns false
+   else {
+    printf("COMMAND %s returned non zero exit code %d\n", command[0], exit_code ); 
     return false;
+    }
   }
-  return false;
+  
     va_end(args);
 
     return true;
@@ -118,7 +116,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
-    command[count] = command[count];
+   // command[count] = command[count];
 
 
 /*
@@ -142,8 +140,6 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     if(pid == -1)
      return -1;
     else if(pid == 0){
-        printf("calling execv\n");
-        
          if (dup2(fd, 1) < 0) 
          {
            perror("dup2"); abort(); 
@@ -152,16 +148,14 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
          execv(command[0], command);
       
         exit (-1);
-      //return false;
     }
 
   if( waitpid( pid, &status, 0) == -1)
     return false;
   else if(WIFEXITED (status)){
-   //printf(" %d\n", WEXITSTATUS (status));
    if(WEXITSTATUS (status) == status)
     return true;
-     else
+   else
     return false;
   }
 

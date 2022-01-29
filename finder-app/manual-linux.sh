@@ -34,7 +34,7 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     echo "Checking out version ${KERNEL_VERSION}"
     git checkout ${KERNEL_VERSION}
 
-    # TODO: Add your kernel build steps here
+    # TODO: Add your kernel build steps here 
 fi 
 
 echo "Adding the Image in outdir"
