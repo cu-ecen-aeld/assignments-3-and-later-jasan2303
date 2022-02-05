@@ -1,7 +1,7 @@
 all: writer.o
 
 writer.o:
-	$(CROSS_COMPILE)gcc writer.o -o writer
+	$(CROSS_COMPILE)gcc writer.c -o writer
 	#$(CROSS_COMPILE)gcc -c writer.c
 
 clean:
