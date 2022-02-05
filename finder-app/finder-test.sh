@@ -45,12 +45,35 @@ fi
 #make clean
 #make 
 
+path=$(which writer)
+
+if [ ${path} = "/usr/bin/writer" ] 
+then 
+	WRITER_PATH=writer
+else
+	WRITER_PATH=./writer
+fi
+
+path=$(which finder.sh)
+
+if [ ${path} = "/usr/bin/finder.sh" ] 
+then 
+	FINDER_PATH=finder.sh
+else
+	FINDER_PATH=./finder.sh
+fi
+
 for i in $( seq 1 $NUMFILES)
 do
-	./writer "$WRITEDIR/${username}$i.txt" "$WRITESTR"
+	$WRITER_PATH "$WRITEDIR/${username}$i.txt" "$WRITESTR"
 done
 
-OUTPUTSTRING=$(./finder.sh "$WRITEDIR" "$WRITESTR")
+OUTPUTSTRING=$($FINDER_PATH "$WRITEDIR" "$WRITESTR")
+
+
+touch /tmp/assignment-4-result.txt
+echo ${OUTPUTSTRING} > /tmp/assignment-4-result.txt
+
 
 set +e
 echo ${OUTPUTSTRING} | grep "${MATCHSTR}"
