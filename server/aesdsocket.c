@@ -16,15 +16,16 @@
 #define port 9000
 
 //using global for handlling signals
-int socFD, client_socFD;
+int socFD, client_socFD, fd;
 
 static void sigintHandler(int sig)
 {
    syslog(LOG_NOTICE, "Caught signal, exiting");
-   
+   close(fd);
    remove("/var/tmp/aesdsocketdata");   //Deleting the file  from fs
    close(socFD);                        //and closing the open sockets
    close(client_socFD);
+   
 }
 
 int main()
@@ -99,11 +100,11 @@ int main()
     close(STDERR_FILENO); 
 
  
-    if(signal(SIGINT, sigintHandler) == SIG_ERR);
+    if(signal(SIGINT | SIGTERM, sigintHandler) == SIG_ERR);
 
     char Data_Byte;
     int count=0;
-    int fd;
+    //int fd;
  
      //opening up file in both read and write mode
      fd= open("/var/tmp/aesdsocketdata", O_TRUNC|O_CREAT|O_RDWR, 0777);
