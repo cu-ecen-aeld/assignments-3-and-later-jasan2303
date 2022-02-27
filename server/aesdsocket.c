@@ -274,7 +274,7 @@ int main(int argc, char **argv)
     if(pthread_mutex_init(&lock, NULL) != 0)
     {
         printf("\n mutex init failed\n");
-        return 1;
+        //return 1;
     }
      
      TAILQ_INIT(&head);
@@ -316,7 +316,7 @@ int main(int argc, char **argv)
      //inserting the thread node into the linkedlist
      TAILQ_INSERT_TAIL(&head, client_data, nodes);
      client_data=NULL;
-     free(client_data);
+     //free(client_data);
      
      //giving the first alarm call
      if(!start_alrm)
