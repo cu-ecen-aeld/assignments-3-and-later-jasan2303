@@ -11,9 +11,9 @@ ifeq ($(LDFLAGS),)
 	LDFLAGS = -pthread -lrt
 endif
 
-all: aesdsocket.o
+all: aesdsocket
 
-aesdsocket.o: aesdsocket.c
+aesdsocket: aesdsocket.c
 	$(CC) $(CFLAGS) $^ -o $@ $(INCLUDES) $(LDFLAGS)
 
 clean:
