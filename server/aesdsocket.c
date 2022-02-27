@@ -1,3 +1,11 @@
+/*
+*   author: Jasan Preet Singh
+*   application creates a server socket using port 9000 and accepts connection from 
+*    clients spawning each into seperate thread.
+*
+*/
+
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -72,7 +80,6 @@ void * threadfunc(void* thread_param)
         else
         { 
           printf("error reading:\n");
-          //pthread_exit(NULL);         //exiting the thread as the read failed
         }
      
         if(Data_Byte == '\n')
@@ -88,7 +95,7 @@ void * threadfunc(void* thread_param)
          if(rc != count )
          {
             perror("unsuccesful write:\n");
-            //pthread_exit(NULL);
+            
          }
         
          free(str_to_append);// freeing up the allocated memory
@@ -126,9 +133,8 @@ void * threadfunc(void* thread_param)
          if(rc == 0)
            syslog(LOG_NOTICE, "Closed connection from %s", client_data->ip_str);
       
-      client_data->thread_complete_status=true;
-      
-      //pthread_exit(NULL); //as client completes the connection
+      client_data->thread_complete_status=true; // setting flag so that the join can clean up thread resource
+     
       return thread_param;
 }
 
@@ -316,7 +322,6 @@ int main(int argc, char **argv)
      //inserting the thread node into the linkedlist
      TAILQ_INSERT_TAIL(&head, client_data, nodes);
      client_data=NULL;
-     //free(client_data);
      
      //giving the first alarm call
      if(!start_alrm)
