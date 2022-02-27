@@ -72,7 +72,7 @@ void * threadfunc(void* thread_param)
         else
         { 
           printf("error reading:\n");
-          pthread_exit(NULL);         //exiting the thread as the read failed
+          //pthread_exit(NULL);         //exiting the thread as the read failed
         }
      
         if(Data_Byte == '\n')
@@ -88,7 +88,7 @@ void * threadfunc(void* thread_param)
          if(rc != count )
          {
             perror("unsuccesful write:\n");
-            pthread_exit(NULL);
+            //pthread_exit(NULL);
          }
         
          free(str_to_append);// freeing up the allocated memory
@@ -128,7 +128,7 @@ void * threadfunc(void* thread_param)
       
       client_data->thread_complete_status=true;
       
-      pthread_exit(NULL); //as client completes the connection
+      //pthread_exit(NULL); //as client completes the connection
       return thread_param;
 }
 
