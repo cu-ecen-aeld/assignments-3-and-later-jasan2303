@@ -20,6 +20,7 @@
 
 
 
+pthread_mutex_t lock;
 
 typedef struct node
 {
@@ -50,34 +51,45 @@ void * threadfunc(void* thread_param)
      int count=0;
      
      printf("started thread\n");
-     client_data->thread_complete_status=false;
-   while(!send_file) 
-   {  
-     if(realloc_flag)
-     {
-       str_to_append=realloc(str_to_append, count+1);
-       realloc_flag=0;
+        
+        client_data->thread_complete_status=false;
+        while(!send_file) 
+        {  
+         if(realloc_flag)
+         {
+          str_to_append=realloc(str_to_append, count+1);
+          realloc_flag=0;
        
-     }
+         }
      
-     rc = recv(client_data->socFD, &Data_Byte, 1, 0);
-     if(rc==1){
-       realloc_flag =1;
-       *(str_to_append + count) = Data_Byte;
-       count++;
-     }
-     else 
-       printf("error reading:\n");
-   
-     if(Data_Byte == '\n')
-     send_file=1;
-   } 
-     printf("received %s", str_to_append);
-         lseek(fd, 0, SEEK_END);
+        rc = recv(client_data->socFD, &Data_Byte, 1, 0);
+        if(rc==1)
+        {
+         realloc_flag =1;
+         *(str_to_append + count) = Data_Byte;
+         count++;
+        }
+        else
+        { 
+          printf("error reading:\n");
+          pthread_exit(NULL);         //exiting the thread as the read failed
+        }
+     
+        if(Data_Byte == '\n')
+        send_file=1;
+       } 
+         
+       if(pthread_mutex_lock(&lock) !=0) //locking the mutexa s thread uses the shared resource
+       {
+         perror("mutex lock");
+       }  
+         
          rc=write(fd, str_to_append, count);
          if(rc != count )
+         {
             perror("unsuccesful write:\n");
-       
+            pthread_exit(NULL);
+         }
         
          free(str_to_append);// freeing up the allocated memory
          count=0;            //resetting the length
@@ -106,6 +118,8 @@ void * threadfunc(void* thread_param)
             
          }
          send_file=0;
+         if(pthread_mutex_unlock(&lock) != 0)   //unlock the mutex as the thread finished using shared reesource
+           perror("mutex unlock");
          
          shutdown(client_data->socFD, 2);
          rc=close(client_data->socFD);
@@ -114,6 +128,7 @@ void * threadfunc(void* thread_param)
       
       client_data->thread_complete_status=true;
       
+      pthread_exit(NULL); //as client completes the connection
       return thread_param;
 }
 
@@ -134,6 +149,19 @@ void append_time_str()
 
 }
 
+void graceful_exit()
+{
+   thread_data_t * e = NULL;
+    //freeing all the nodes      
+    while (!TAILQ_EMPTY(&head))
+    {
+        e = TAILQ_FIRST(&head);
+        TAILQ_REMOVE(&head, e, nodes);
+        free(e);
+        e = NULL;
+    }
+}
+
 static void sigintHandler(int sig)
 {
    if(sig == SIGALRM)
@@ -149,16 +177,9 @@ static void sigintHandler(int sig)
       close(fd);
       remove("/var/tmp/aesdsocketdata");   //Deleting the file  from fs
       close(socFD);                        //and closing the open sockets
-      //close(client_socFD);
       
-    thread_data_t * e = NULL;
-    while (!TAILQ_EMPTY(&head))
-    {
-        e = TAILQ_FIRST(&head);
-        TAILQ_REMOVE(&head, e, nodes);
-        free(e);
-        e = NULL;
-    }
+      //freeing the allocated memories to threads
+      graceful_exit();
       
    }
    
@@ -249,13 +270,19 @@ int main(int argc, char **argv)
      fd= open("/var/tmp/aesdsocketdata", O_TRUNC|O_CREAT|O_RDWR, 0777);
      if(fd<0)
       printf("error opening the file:\n");
+      
+    if(pthread_mutex_init(&lock, NULL) != 0)
+    {
+        printf("\n mutex init failed\n");
+        return 1;
+    }
      
      TAILQ_INIT(&head);
      
      bool start_alrm=false;
      printf("starting socket\n");
       
-  while(1){
+   while(1){
      
      rc=listen(socFD, 5);   
      if(rc == -1)
@@ -286,9 +313,12 @@ int main(int argc, char **argv)
      if(pthread_create(&(client_data->thread), NULL, &threadfunc, (void *)client_data) != 0)
        perror("pthread create");
      
+     //inserting the thread node into the linkedlist
      TAILQ_INSERT_TAIL(&head, client_data, nodes);
      client_data=NULL;
-
+     free(client_data);
+     
+     //giving the first alarm call
      if(!start_alrm)
      {
        start_alrm=true;
@@ -296,7 +326,7 @@ int main(int argc, char **argv)
        alarm(10);
      }
      
-     thread_data_t * e =NULL;
+     thread_data_t * e =NULL;       //tracing the running threads to join and freeup
      TAILQ_FOREACH(e, &head, nodes)
      {
         printf("checking for join:\n");
@@ -313,7 +343,7 @@ int main(int argc, char **argv)
      }
      printf("done checking\n");    
      
-  } 
+   } 
    // shutting down and cllosing up the socket
    shutdown(socFD, 2);
    close(socFD);
