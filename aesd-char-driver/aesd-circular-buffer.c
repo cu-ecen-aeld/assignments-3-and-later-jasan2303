@@ -6,6 +6,8 @@
  * @date 2020-03-01
  * @copyright Copyright (c) 2020
  *
+ * Added functionality by Jasan Preet singh
+ *
  */
 
 #ifdef __KERNEL__
@@ -35,37 +37,21 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
     * TODO: implement per description
     */
    
-   size_t total_len=0;
-   
-   //uint8_t rear= buffer->in_offs;
-   uint8_t front= buffer->out_offs;
-   
-   //printf(" rear= %d  front= %d ",rear, front); 
-   /*whil
-   {
-      total_len += buffer->entry[front].size;
-      
-      if( front == AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED-1 )
-        front=0;
-      else 
-        front++;
-        
-   } */
-   
+   size_t total_len=0;     //to count the total current length before addding entry.
+   uint8_t front= buffer->out_offs; //pointing the element i.e. first entry
    uint8_t index;
    struct aesd_buffer_entry *entry;
-   AESD_CIRCULAR_BUFFER_FOREACH(entry,buffer,index) {
+   
+   
+   AESD_CIRCULAR_BUFFER_FOREACH(entry,buffer,index) {          //calculates the total length of the current string stored
   		total_len+= entry->size;
    }
-    printf("length= %ld ", total_len);
     
-   front= buffer-> out_offs;
-   
    char_offset++;  //making it size(length)
    
    if( char_offset <= total_len)
    {
-      while( char_offset > buffer->entry[front].size )
+      while( char_offset > buffer->entry[front].size )        //keeps looping until the offset reaches certain entry
       {
          char_offset -= buffer->entry[front].size;
          if( front == AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED-1 )
@@ -73,13 +59,10 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
          else 
            front++;
       }
-     char_offset--;
-     printf("here char= %c %s \n", *(buffer->entry[front].buffptr +char_offset), buffer->entry[front].buffptr +char_offset);
-     //*entry_offset_byte_rtn=(size_t) buffer->entry[front].buffptr +char_offset;
+     char_offset--;  //making back it to offset
      
      *entry_offset_byte_rtn= char_offset;
-     
-     return (&buffer->entry[front]);
+     return (&buffer->entry[front]);   //returns the entry where the offset lies
    }
    else
     return NULL;
@@ -100,37 +83,23 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
     * TODO: implement per description 
     */
     
-    //as the buffer gets overwrite if it is full, no worries
-   
-    
+       //adding the new entry to the buffer
+       buffer->entry[buffer->in_offs]= *add_entry;
       
-    buffer->entry[buffer->in_offs]= *add_entry;
+      //updates the out pointer as the entry gets overwitten
+      if( buffer->full)
+        buffer->out_offs += 1;
       
-      //&rtnentry->buffptr[offset_rtn]
-      
-      
-      //buffer->entry.[buffptr + = add_entry->buffptr;
-     // buffer->entry[buffer->in_offs].size= add_entry->size;
-     
-    if( buffer->full)
-     buffer->out_offs += 1;
-      
-      printf(" %s  \n", buffer->entry[buffer->in_offs].buffptr);
+      //printf(" %s  \n", buffer->entry[buffer->in_offs].buffptr);
       if((buffer->in_offs ) == (AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED -1) ) 
         buffer->in_offs=0;
       else
         buffer->in_offs = buffer->in_offs +1; 
        
-       printf(" %d \n", buffer->in_offs); 
-        
-     if( (buffer->in_offs) == buffer->out_offs )
+      // Sets full flag if both in and out poointers point at same pposition    
+      if( (buffer->in_offs) == buffer->out_offs )
         buffer->full=true;
         
-      
-      
-          
-   // }
-    
 }
 
 /**
