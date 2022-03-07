@@ -65,7 +65,7 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
      return (&buffer->entry[front]);   //returns the entry where the offset lies
    }
    else
-    return NULL;
+    return NULL;   //returns NULL if the offset is greater the combine of all the entries
     
   return NULL;
 }
