@@ -26,6 +26,7 @@
 
 #define port 9000
 
+#define USE_AESD_CHAR_DEVICE 0
 
 
 pthread_mutex_t lock;
@@ -197,7 +198,7 @@ int main(int argc, char **argv)
   openlog(NULL, 0, LOG_USER);
   
   int rc;
-
+  char * dest_file = "/var/tmp/aesdsocketdata";
   //Open the server socket
   socFD= socket(AF_INET,SOCK_STREAM,0);
   if(socFD == -1){
@@ -270,13 +271,17 @@ int main(int argc, char **argv)
     signal(SIGALRM, sigintHandler);
     signal(SIGTERM, sigintHandler);
     
+    if(USE_AESD_CHAR_DEVICE) {
+      dest_file = "/dev/aesdchar";
+    }   
     
+     
+      //opening up file in both read and write mode
+      fd= open( dest_file, O_TRUNC|O_CREAT|O_RDWR, 0777);
+      if(fd<0)
+        printf("error opening the file:\n");
+       
     
-     //opening up file in both read and write mode
-     fd= open("/var/tmp/aesdsocketdata", O_TRUNC|O_CREAT|O_RDWR, 0777);
-     if(fd<0)
-      printf("error opening the file:\n");
-      
     if(pthread_mutex_init(&lock, NULL) != 0)
     {
         printf("\n mutex init failed\n");
@@ -323,29 +328,31 @@ int main(int argc, char **argv)
      TAILQ_INSERT_TAIL(&head, client_data, nodes);
      client_data=NULL;
      
-     //giving the first alarm call
-     if(!start_alrm)
-     {
-       start_alrm=true;
-       printf("starting alarm\n");
-       alarm(10);
+     if(!USE_AESD_CHAR_DEVICE){
+       
+       //giving the first alarm call
+       if(!start_alrm)
+       {
+         start_alrm=true;
+         printf("starting alarm\n");
+         alarm(10);
+       }
      }
-     
-     thread_data_t * e =NULL;       //tracing the running threads to join and freeup
-     TAILQ_FOREACH(e, &head, nodes)
-     {
-        printf("checking for join:\n");
-        pthread_join(e->thread,NULL);
-        if(e->thread_complete_status)
-        {
+       thread_data_t * e =NULL;       //tracing the running threads to join and freeup
+       TAILQ_FOREACH(e, &head, nodes)
+       {
+         printf("checking for join:\n");
+         pthread_join(e->thread,NULL);
+         if(e->thread_complete_status)
+         {
            //
            TAILQ_REMOVE(&head, e, nodes);
            free(e);
            break;
            //e = NULL;
-        }
+         }
     
-     }
+       }
      printf("done checking\n");    
      
    } 

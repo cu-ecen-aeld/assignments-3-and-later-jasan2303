@@ -6,8 +6,6 @@
  * @date 2020-03-01
  * @copyright Copyright (c) 2020
  *
- * Added functionality by Jasan Preet singh
- *
  */
 
 #ifdef __KERNEL__
@@ -16,9 +14,7 @@
 #include <string.h>
 #endif
 
-//#include <stdio.h>
 #include "aesd-circular-buffer.h"
-
 
 /**
  * @param buffer the buffer to search for corresponding offset.  Any necessary locking must be performed by caller.
@@ -33,41 +29,25 @@
 struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct aesd_circular_buffer *buffer,
 			size_t char_offset, size_t *entry_offset_byte_rtn )
 {
-    /**
-    * TODO: implement per description
-    */
-   
-   size_t total_len=0;     //to count the total current length before addding entry.
-   uint8_t front= buffer->out_offs; //pointing the element i.e. first entry
-   uint8_t index;
-   struct aesd_buffer_entry *entry;
-   
-   
-   AESD_CIRCULAR_BUFFER_FOREACH(entry,buffer,index) {          //calculates the total length of the current string stored
-  		total_len+= entry->size;
-   }
     
-   char_offset++;  //making it size(length)
-   
-   if( char_offset <= total_len)
-   {
-      while( char_offset > buffer->entry[front].size )        //keeps looping until the offset reaches certain entry
-      {
-         char_offset -= buffer->entry[front].size;
-         if( front == AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED-1 )
-           front=0;
-         else 
-           front++;
-      }
-     char_offset--;  //making back it to offset
-     
-     *entry_offset_byte_rtn= char_offset;
-     return (&buffer->entry[front]);   //returns the entry where the offset lies
-   }
-   else
-    return NULL;   //returns NULL if the offset is greater the combine of all the entries
+    int front = buffer->out_offs;
+    size_t total_size = 0;          // to count the total number of bytes from the traversed entries
     
-  return NULL;
+    total_size = buffer->entry[front].size;
+    
+    // to find the entry based on the char_offset
+    while(char_offset >= total_size){
+    	front = (front + 1)	% AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+		
+    	if(front == buffer->in_offs)
+    		return NULL;    	
+    	total_size += buffer->entry[front].size;
+    }
+    
+    //  return byte from the identified entry
+    *entry_offset_byte_rtn = char_offset - (total_size - buffer->entry[front].size);
+ 	
+    return &buffer->entry[front];
 }
 
 /**
@@ -77,29 +57,36 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
 * Any necessary locking must be handled by the caller
 * Any memory referenced in @param add_entry must be allocated by and/or must have a lifetime managed by the caller.
 */
-void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
+const char* aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
 {
-    /**
-    * TODO: implement per description 
-    */
+
+
+ const char* Ow_Buff= NULL;
+ 
+ 
+
+  if ( (buffer->in_offs == buffer->out_offs) && buffer->full ) 
+  {
+
+    Ow_Buff = buffer->entry[buffer->in_offs].buffptr;
+
+    buffer->entry[buffer->in_offs] = *add_entry;
+    buffer->in_offs = (buffer->in_offs + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+    buffer->out_offs = (buffer->out_offs + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+  }
+  else 
+  {
+    buffer->entry[buffer->in_offs] = *add_entry;
+    buffer->in_offs = (buffer->in_offs + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+
+  }
+
+    if (buffer->in_offs == buffer->out_offs) 
+      	buffer->full = true;
+    else
+    	buffer->full = false;
     
-       //adding the new entry to the buffer
-       buffer->entry[buffer->in_offs]= *add_entry;
-      
-      //updates the out pointer as the entry gets overwitten
-      if( buffer->full)
-        buffer->out_offs += 1;
-      
-      //printf(" %s  \n", buffer->entry[buffer->in_offs].buffptr);
-      if((buffer->in_offs ) == (AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED -1) ) 
-        buffer->in_offs=0;
-      else
-        buffer->in_offs = buffer->in_offs +1; 
-       
-      // Sets full flag if both in and out poointers point at same pposition    
-      if( (buffer->in_offs) == buffer->out_offs )
-        buffer->full=true;
-        
+  return Ow_Buff;
 }
 
 /**
