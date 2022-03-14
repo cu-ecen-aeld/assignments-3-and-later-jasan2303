@@ -23,7 +23,7 @@
 #  define PDEBUG(fmt, args...) /* not debugging: nothing */
 #endif
 
-#include <aesd-circular-buffer.h>
+#include "aesd-circular-buffer.h"
 
 struct aesd_dev
 {
@@ -31,7 +31,7 @@ struct aesd_dev
 	 * TODO: Add structure(s) and locks needed to complete assignment requirements
 	 */
 	struct aesd_circular_buffer aesd_buffer;
-	struct aesd_buffer_entry buf_entry;
+	struct aesd_buffer_entry *buf_entry;
 	
 	unsigned long size; /* amount of data stored here */
 	struct semaphore sem;

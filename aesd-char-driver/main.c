@@ -17,6 +17,7 @@
 #include <linux/types.h>
 #include <linux/cdev.h>  //provides definations for cdev for registring the char device
 #include <linux/fs.h> // file_operations
+#include <linux/slab.h> //kfree
 #include "aesdchar.h"
 int aesd_major =   0; // use dynamic major
 int aesd_minor =   0;
@@ -28,12 +29,13 @@ struct aesd_dev aesd_device;
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
+
+       struct aesd_dev *dev; /* device information */                  //also think to free it up during cleanup!
 	PDEBUG("open");
 	/**
 	 * TODO: handle open
 	 */
 	 
-       struct aesd_dev *dev; /* device information */                  //also think to free it up during cleanup!
        dev = container_of(inode->i_cdev, struct aesd_dev, cdev);
        filp->private_data = dev; /* for other methods */ 
        
@@ -53,29 +55,30 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                 loff_t *f_pos)
 {
 	ssize_t retval = 0;
+	struct aesd_dev *dev = filp->private_data;
+	
+	//struct scull_qset *dptr; /* the first listitem
+	struct aesd_buffer_entry *curr_entry;      //current entry
+	size_t *entry_offset_byte_rtn;  //offset w.r.t current entry
+	int quantum;
+	
 	PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
 	/**
 	 * TODO: handle read
 	 */
 	
-	struct aesd_dev *dev = filp->private_data;
-	
-	//struct scull_qset *dptr; /* the first listitem
-	struct *aesd_buffer_entry;      //current entry
-	size_t *entry_offset_byte_rtn;  //offset w.r.t current entry
-	int quantum;
 	
 	if (down_interruptible(&dev->sem))
           return -ERESTARTSYS;
 	
-	*aesd_buffer_entry = aesd_circular_buffer_find_entry_offset_for_fpos(dev->aesd_buffer,
+	curr_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->aesd_buffer,
 			         *f_pos, entry_offset_byte_rtn );
         
         
         if(!*entry_offset_byte_rtn)
-	   quantum = (dev->aesd_buffer->entry[out_offs]->size - *entry_offset_byte_rtn +1) ;  //current read element length
+	   quantum = (dev->aesd_buffer.entry[dev->aesd_buffer.out_offs].size - *entry_offset_byte_rtn +1) ;  //current read element length
 	else
-	   quantum = dev->aesd_buffer->entry[out_offs]->size;
+	   quantum = dev->aesd_buffer.entry[dev->aesd_buffer.out_offs].size;
 	
 	if(count > quantum)
 	  count = quantum;
@@ -107,14 +110,14 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                 loff_t *f_pos)
 {
 	ssize_t retval = -ENOMEM;
+	struct aesd_dev *dev = filp->private_data;
+	size_t tcount=0; //for temp store count till \n
+	void * command_end;
 	PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
 	/**
 	 * TODO: handle write
 	 */
-	 
-	struct aesd_dev *dev = filp->private_data;
-	size_t tcount=0; //for temp store count till \n
-	void * command_end;
+	
 	
   again:
 	command_end=memchr(buf, '\n', count);
@@ -122,19 +125,27 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 	if( command_end == NULL)   //no newline find 
 	{
 	  dev->buf_entry->buffptr= kmalloc(count, GFP_KERNEL);
-	  copy_from_user(buf, dev->buf_entry->buffptr, count);
+	  if( copy_from_user((void *)buf, dev->buf_entry->buffptr, count))
+	  {
+            retval = -EFAULT;
+            goto out;
+          }
 	  dev->buf_entry->size += count;
 	}
 	else
 	{
-	  tcount = command_end - buf; //count till the '\n'
+	  tcount = (size_t)command_end - (size_t)buf; //count till the '\n'
 	  dev->buf_entry->buffptr= kmalloc(count, GFP_KERNEL);
-	  copy_from_user(buf, dev->buf_entry->buffptr, count);
+	  if(copy_from_user((void *)buf, dev->buf_entry->buffptr, count))
+	  {
+            retval = -EFAULT;
+            goto out;
+          }
 	  dev->buf_entry->size += count;
 	  
 	  //buf
 	  //adding the completed entry to the buffer
-	  aesd_circular_buffer_add_entry( dev->aesd_buffer, dev->buf_entry);
+	  aesd_circular_buffer_add_entry( &dev->aesd_buffer, dev->buf_entry);
 	  
 	  //free entry
 	  kfree(dev->buf_entry);
@@ -145,8 +156,11 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 	}
 	 
 	 retval = count;
-	
-	return retval;
+	//return retval;
+    
+    out:
+       up(&dev->sem);
+       return retval;
 }
 struct file_operations aesd_fops = {                     //file operations used by the device
 	.owner =    THIS_MODULE,
@@ -189,7 +203,7 @@ int aesd_init_module(void)
 	 * TODO: initialize the AESD specific portion of the device
 	 */
          
-         aesd_circular_buffer_init(aesd_device->aesd_buffer);   //initializing the circular buffer
+         aesd_circular_buffer_init(&aesd_device.aesd_buffer);   //initializing the circular buffer
          //aaesd_device->buf_entry??              //also need to intialize single entry for writing
 
 
