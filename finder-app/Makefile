@@ -1,11 +1,8 @@
-.DEFAULT_GOAL := writer
-
-writer: writer.o
-	$(CROSS_COMPILE)gcc writer.o -o writer
+CC = $(CROSS_COMPILE)gcc
+all: writer.o
 
 writer.o:
-	$(CROSS_COMPILE)gcc -c writer.c
+	$(CC) -Wall writer.c -o writer
 
 clean:
-	rm -f *.o writer  # -f ignores the non existense files
-
+	rm -f writer *.o
