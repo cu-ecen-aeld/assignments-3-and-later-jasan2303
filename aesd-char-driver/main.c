@@ -133,14 +133,10 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 	  PDEBUG("%ld " , writen);
 	 
           
-          //*f_pos += count;  //updating the *f_pos after write
-          //dev->size = *f_pos;  //updating the total size
-	 
-	  retval = count -writen;
+	 retval = count -writen;
 	 dev->buf_entry.size += retval;
 	
-	// command_end=memchr(dev->buf_entry.buffptr , '\n',dev->buf_entry.size );
-	 
+	
 	  if( memchr(dev->buf_entry.buffptr , '\n',dev->buf_entry.size ) != NULL)
 	  {
 	     ret_entry=aesd_circular_buffer_add_entry( &dev->aesd_buffer, &dev->buf_entry);
@@ -154,7 +150,6 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 	
     
     out:
-      PDEBUG("writen %zu bytes with offset  %lld",retval,*f_pos); 
       mutex_unlock(&dev->dev_mutex);
       return retval;
 }
@@ -214,13 +209,25 @@ int aesd_init_module(void)
 
 void aesd_cleanup_module(void)
 {
+	// to use Macro in aeesd-circularbuffer.h
+        uint8_t index;
+	struct aesd_buffer_entry *dev_entry;
+	
 	dev_t devno = MKDEV(aesd_major, aesd_minor);
 
 	cdev_del(&aesd_device.cdev);
 
+        
 	/**
 	 * TODO: cleanup AESD specific poritions here as necessary
 	 */
+	kfree(aesd_device.buf_entry.buffptr);
+	
+	AESD_CIRCULAR_BUFFER_FOREACH(dev_entry, &aesd_device.aesd_buffer, index){
+		if(dev_entry->buffptr != NULL)
+			kfree(dev_entry->buffptr);
+	
+	}
 
 	unregister_chrdev_region(devno, 1);
 }
