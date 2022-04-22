@@ -26,7 +26,13 @@
 
 #define port 9000
 
+#define USE_AESD_CHAR_DEVICE (1)
 
+#if (USE_AESD_CHAR_DEVICE == 1)
+  #define DEST_FILE "/dev/aesdchar"
+#else
+  #define DEST_FILE "/var/tmp/aesdsocketdata"
+#endif
 
 pthread_mutex_t lock;
 
@@ -58,7 +64,11 @@ void * threadfunc(void* thread_param)
      char Data_Byte;
      int count=0;
      
-     printf("started thread\n");
+       //printf("started thread\n");
+        
+        fd= open( DEST_FILE, O_TRUNC|O_CREAT|O_RDWR, 0777);
+        if(fd<0)
+         printf("error opening the file here:\n");
         
         client_data->thread_complete_status=false;
         while(!send_file) 
@@ -77,10 +87,10 @@ void * threadfunc(void* thread_param)
          *(str_to_append + count) = Data_Byte;
          count++;
         }
-        else
+       /* else
         { 
           printf("error reading:\n");
-        }
+        } */
      
         if(Data_Byte == '\n')
         send_file=1;
@@ -105,7 +115,7 @@ void * threadfunc(void* thread_param)
          int success=0;
          
          lseek(fd, 0, SEEK_SET);
-         printf("reading from the file\n");
+        // printf("reading from the file\n");
          while( read(fd, &return_data, 1) != 0)
          {
            //printf("%c \n", return_data);
@@ -134,7 +144,7 @@ void * threadfunc(void* thread_param)
            syslog(LOG_NOTICE, "Closed connection from %s", client_data->ip_str);
       
       client_data->thread_complete_status=true; // setting flag so that the join can clean up thread resource
-     
+      close(fd);
       return thread_param;
 }
 
@@ -166,6 +176,8 @@ void graceful_exit()
         free(e);
         e = NULL;
     }
+    pthread_mutex_destroy(&lock);
+    exit(0);
 }
 
 static void sigintHandler(int sig)
@@ -197,7 +209,7 @@ int main(int argc, char **argv)
   openlog(NULL, 0, LOG_USER);
   
   int rc;
-
+  //char * dest_file = "/var/tmp/aesdsocketdata";
   //Open the server socket
   socFD= socket(AF_INET,SOCK_STREAM,0);
   if(socFD == -1){
@@ -272,11 +284,13 @@ int main(int argc, char **argv)
     
     
     
-     //opening up file in both read and write mode
-     fd= open("/var/tmp/aesdsocketdata", O_TRUNC|O_CREAT|O_RDWR, 0777);
-     if(fd<0)
-      printf("error opening the file:\n");
-      
+     
+   /*   //opening up file in both read and write mode
+      fd= open( dest_file, O_TRUNC|O_CREAT|O_RDWR, 0777);
+      if(fd<0)
+        printf("error opening the file here:\n");
+     */  
+    
     if(pthread_mutex_init(&lock, NULL) != 0)
     {
         printf("\n mutex init failed\n");
@@ -323,30 +337,32 @@ int main(int argc, char **argv)
      TAILQ_INSERT_TAIL(&head, client_data, nodes);
      client_data=NULL;
      
-     //giving the first alarm call
-     if(!start_alrm)
-     {
-       start_alrm=true;
-       printf("starting alarm\n");
-       alarm(10);
+     if(!USE_AESD_CHAR_DEVICE){
+       
+       //giving the first alarm call
+       if(!start_alrm)
+       {
+         start_alrm=true;
+         printf("starting alarm\n");
+         alarm(10);
+       }
      }
-     
-     thread_data_t * e =NULL;       //tracing the running threads to join and freeup
-     TAILQ_FOREACH(e, &head, nodes)
-     {
-        printf("checking for join:\n");
-        pthread_join(e->thread,NULL);
-        if(e->thread_complete_status)
-        {
+       thread_data_t * e =NULL;       //tracing the running threads to join and freeup
+       TAILQ_FOREACH(e, &head, nodes)
+       {
+         printf("checking for join:\n");
+         pthread_join(e->thread,NULL);
+         if(e->thread_complete_status)
+         {
            //
            TAILQ_REMOVE(&head, e, nodes);
            free(e);
            break;
            //e = NULL;
-        }
+         }
     
-     }
-     printf("done checking\n");    
+       }
+     //printf("done checking\n");    
      
    } 
    // shutting down and cllosing up the socket
